@@ -1,0 +1,117 @@
+# Image reference for every service: <registry><prefix><service.image>:<tag>
+# CD overrides the tag with: --set image.tag=$GITHUB_SHA
+image:
+  registry: ""            # e.g. "ghcr.io/<owner>/" (keep trailing slash); empty = local image in Kind
+  prefix: the-store-
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []      # e.g. [{name: ghcr-pull}] when GHCR packages are private
+
+# maxUnavailable must stay 0: with 1 replica and maxUnavailable 1, `helm --wait`/`--atomic`
+# consider the release ready immediately and never detect a broken rollout.
+rollingUpdate:
+  maxUnavailable: 0
+  maxSurge: 1
+
+ingress:
+  className: nginx
+  host: localhost
+  # Exposes each service's health endpoint at /health/<service> (used by the smoke test)
+  healthPaths: true
+
+# Settings shared by all containers
+securityContext:
+  capabilities:
+    drop: [ALL]
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+javaOpts: -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/urandom
+
+services:
+  catalog:
+    image: catalog
+    replicas: 1
+    port: 8080
+    healthPath: /health
+    initialDelaySeconds: 0
+    config:
+      RETAIL_CATALOG_PERSISTENCE_PROVIDER: in-memory
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 256m
+        memory: 256Mi
+
+  carts:
+    image: cart
+    replicas: 1
+    port: 8080
+    java: true
+    healthPath: /actuator/health/readiness
+    initialDelaySeconds: 10
+    config:
+      RETAIL_CART_PERSISTENCE_PROVIDER: in-memory
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 256m
+        memory: 512Mi
+
+  orders:
+    image: orders
+    replicas: 1
+    port: 8080
+    java: true
+    healthPath: /actuator/health/readiness
+    initialDelaySeconds: 10
+    config:
+      RETAIL_ORDERS_MESSAGING_PROVIDER: in-memory
+      RETAIL_ORDERS_PERSISTENCE_PROVIDER: in-memory
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 256m
+        memory: 512Mi
+
+  checkout:
+    image: checkout
+    replicas: 1
+    port: 8080
+    healthPath: /health
+    initialDelaySeconds: 0
+    config:
+      RETAIL_CHECKOUT_PERSISTENCE_PROVIDER: in-memory
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 128m
+        memory: 256Mi
+
+  ui:
+    image: ui
+    replicas: 1
+    port: 8080
+    java: true
+    healthPath: /actuator/health/readiness
+    initialDelaySeconds: 10
+    publicIngress: true     # serves "/" on the ingress host
+    podMetadataEnv: true    # METADATA_KUBERNETES_* from the downward API
+    addCapabilities: [NET_BIND_SERVICE]
+    config:
+      RETAIL_UI_ENDPOINTS_CATALOG: http://catalog
+      RETAIL_UI_ENDPOINTS_CARTS: http://carts
+      RETAIL_UI_ENDPOINTS_CHECKOUT: http://checkout
+      RETAIL_UI_ENDPOINTS_ORDERS: http://orders
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 128m
+        memory: 512Mi

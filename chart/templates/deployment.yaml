@@ -1,0 +1,88 @@
+{{- range $name, $svc := .Values.services }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "the-store.labels" (dict "root" $ "name" $name) | nindent 4 }}
+spec:
+  replicas: {{ $svc.replicas }}
+  strategy:
+    rollingUpdate:
+      {{- toYaml $.Values.rollingUpdate | nindent 6 }}
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "the-store.selectorLabels" (dict "name" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "the-store.selectorLabels" (dict "name" $name) | nindent 8 }}
+        app.kubernetes.io/owner: retail-store-sample
+      annotations:
+        # Roll pods when the service config changes
+        checksum/config: {{ $svc.config | toYaml | sha256sum }}
+    spec:
+      serviceAccountName: {{ $name }}
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: {{ $name }}
+          {{- if or $svc.java $svc.podMetadataEnv }}
+          env:
+            {{- if $svc.java }}
+            - name: JAVA_OPTS
+              value: {{ $.Values.javaOpts | quote }}
+            {{- end }}
+            {{- if $svc.podMetadataEnv }}
+            - name: METADATA_KUBERNETES_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: METADATA_KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: METADATA_KUBERNETES_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            {{- end }}
+          {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ $name }}
+          securityContext:
+            {{- $sc := deepCopy $.Values.securityContext }}
+            {{- if $svc.addCapabilities }}
+            {{- $_ := set $sc.capabilities "add" $svc.addCapabilities }}
+            {{- end }}
+            {{- toYaml $sc | nindent 12 }}
+          image: {{ include "the-store.image" (dict "root" $ "svc" $svc) | quote }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $svc.port }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: {{ $svc.healthPath }}
+              port: {{ $svc.port }}
+            {{- if $svc.initialDelaySeconds }}
+            initialDelaySeconds: {{ $svc.initialDelaySeconds }}
+            {{- end }}
+          resources:
+            {{- toYaml $svc.resources | nindent 12 }}
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-volume
+      volumes:
+        - name: tmp-volume
+          emptyDir:
+            medium: Memory
+{{- end }}

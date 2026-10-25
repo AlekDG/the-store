@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: catalog
+            kind: go
+          - service: cart
+            kind: java
+          - service: orders
+            kind: java
+          - service: ui
+            kind: java
+          - service: checkout
+            kind: node
+    defaults:
+      run:
+        working-directory: src/${{ matrix.service }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Go (catalog)
+      - name: Set up Go
+        if: matrix.kind == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: src/catalog/go.mod
+          cache-dependency-path: src/catalog/go.sum
+
+      - name: Lint (gofmt + go vet)
+        if: matrix.kind == 'go'
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "Files not formatted with gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+          go vet ./...
+
+      - name: Unit tests (go test)
+        if: matrix.kind == 'go'
+        run: go test ./...
+
+      # Java (cart, orders, ui)
+      - name: Set up Java
+        if: matrix.kind == 'java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '21'
+          cache: maven
+
+      - name: Lint (checkstyle)
+        if: matrix.kind == 'java'
+        run: ./mvnw -B -ntp checkstyle:check
+
+      - name: Unit tests (mvn test)
+        if: matrix.kind == 'java'
+        run: ./mvnw -B -ntp test
+
+      # Node.js (checkout)
+      - name: Set up Node
+        if: matrix.kind == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: src/checkout/yarn.lock
+
+      - name: Install dependencies
+        if: matrix.kind == 'node'
+        run: yarn install --frozen-lockfile
+
+      - name: Lint (eslint)
+        if: matrix.kind == 'node'
+        run: yarn lint
+
+      - name: Integration tests (jest + testcontainers)
+        if: matrix.kind == 'node'
+        run: yarn test:integration
+
+      # Image build (all services, not pushed)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: src/${{ matrix.service }}
+          push: false
+          tags: the-store-${{ matrix.service }}:ci-${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,scope=${{ matrix.service }},mode=max

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: the-store
+description: Helm chart for The Store (catalog, carts, orders, checkout, ui)
+type: application
+version: 0.1.0
+appVersion: "1.2.4"

@@ -1,0 +1,26 @@
+{{- if .Values.ingress.healthPaths }}
+{{- range $name, $svc := .Values.services }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $name }}-health
+  labels:
+    {{- include "the-store.labels" (dict "root" $ "name" $name) | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: {{ $svc.healthPath }}
+spec:
+  ingressClassName: {{ $.Values.ingress.className }}
+  rules:
+    - host: {{ $.Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /health/{{ $name }}
+            pathType: Exact
+            backend:
+              service:
+                name: {{ $name }}
+                port:
+                  number: 80
+{{- end }}
+{{- end }}
