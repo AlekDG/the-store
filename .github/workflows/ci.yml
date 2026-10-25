@@ -77,6 +77,13 @@ jobs:
 
       - name: Unit tests (mvn test)
         if: matrix.kind == 'java'
+        # Runner Docker 29 rejects Testcontainers 1.21's default API version (1.32), so pin a newer one.
+        # Dummy AWS credentials are needed by the DynamoDB Local integration test (cart).
+        env:
+          JAVA_TOOL_OPTIONS: -Dapi.version=1.44
+          AWS_ACCESS_KEY_ID: dummy
+          AWS_SECRET_ACCESS_KEY: dummy
+          AWS_REGION: us-east-1
         run: ./mvnw -B -ntp test
 
       # Node.js (checkout)

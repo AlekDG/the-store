@@ -1,6 +1,6 @@
 # The Store
 
-[![Build](https://github.com/jupmoreno/the-store/actions/workflows/main.yml/badge.svg)](https://github.com/jupmoreno/the-store/actions/workflows/main.yml)
+[![CI](https://github.com/AlekDG/the-store/actions/workflows/ci.yml/badge.svg)](https://github.com/AlekDG/the-store/actions/workflows/ci.yml) [![CD](https://github.com/AlekDG/the-store/actions/workflows/cd.yml/badge.svg)](https://github.com/AlekDG/the-store/actions/workflows/cd.yml)
 
 **The Store** is a modern e-commerce platform built with microservices architecture.
 
