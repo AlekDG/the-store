@@ -24,7 +24,13 @@ The Store is built with a microservices architecture that uses different technol
 | [Checkout](./src/checkout/) | Node.js (NestJS) | Checkout orchestration and payment processing |
 
 
+## 🚀 CI/CD
+
+Pull requests run lint, tests and image builds for every service (GitHub Actions); merges to `main` publish images to GHCR and deploy them to a Kind cluster with Helm (`chart/`), with smoke tests and rollback. See the **[CI/CD how-to](./docs/HOWTO.md)** to set it up and use it.
+
 ## 🛠️ Development
+
+> The `local.sh` flow below is the original manual deploy (static `dist/kubernetes.yaml`, `:latest` images). The CI/CD pipeline does not use it.
 
 ### Prerequisites
 - [Docker](https://docs.docker.com/get-docker/) running
