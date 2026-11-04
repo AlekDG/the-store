@@ -187,3 +187,5 @@ func initTracer(ctx context.Context) (*sdktrace.TracerProvider, error) {
 	otel.SetTracerProvider(tp)
 	return tp, nil
 }
+
+var   demoVersion="v2"
