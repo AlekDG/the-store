@@ -189,4 +189,3 @@ func initTracer(ctx context.Context) (*sdktrace.TracerProvider, error) {
 }
 
 var demoVersion = "v2"
-var demoVersion = "v4"
